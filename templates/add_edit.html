@@ -1,114 +1,189 @@
-{% extends "base.html" %}
-
-{% block title %}{{ "Edit" if mode == "edit" else "Add" }} Page ID - ManyChat Dashboard{% endblock %}
-
-{% block body %}
+{% extends "base.html" %} {% block title %}{{ "Edit" if mode == "edit" else
+"Add" }} Page ID - ManyChat Dashboard{% endblock %} {% block body %}
 <!-- Navbar -->
 <nav class="navbar">
-    <a href="/dashboard" class="navbar-brand">
-        <i class="fas fa-chart-bar"></i> <span>ManyChat</span> Dashboard
-    </a>
-    <div class="navbar-right">
-        <div class="navbar-user">
-            <i class="fas fa-user-circle"></i> {{ user.full_name }}
-            <span class="role-badge">{{ user.role }}</span>
-        </div>
-        <a href="#" class="btn-logout" onclick="event.preventDefault(); if(confirm('Are you sure you want to logout?')) window.location.href='/logout';"><i class="fas fa-sign-out-alt"></i> Logout</a>
+  <a href="/dashboard" class="navbar-brand">
+    <i class="fas fa-chart-bar"></i> <span>ManyChat</span> Dashboard
+  </a>
+  <div class="navbar-right">
+    <div class="navbar-user">
+      <i class="fas fa-user-circle"></i> {{ user.full_name }}
+      <span class="role-badge">{{ user.role }}</span>
     </div>
+    <a
+      href="#"
+      class="btn-logout"
+      onclick="
+        event.preventDefault();
+        if (confirm('Are you sure you want to logout?'))
+          window.location.href = '/logout';
+      "
+      ><i class="fas fa-sign-out-alt"></i> Logout</a
+    >
+  </div>
 </nav>
 
-<div class="container" style="max-width: 700px;">
-    <!-- Breadcrumb -->
-    <div style="margin-bottom: 16px;">
-        <a href="/dashboard" style="color: #64748b; font-size: 0.9rem;">← Back to Dashboard</a>
-    </div>
+<div class="container" style="max-width: 700px">
+  <!-- Breadcrumb -->
+  <div style="margin-bottom: 16px">
+    <a href="/dashboard" style="color: #64748b; font-size: 0.9rem"
+      >← Back to Dashboard</a
+    >
+  </div>
 
-    <div class="card">
-        <h2 style="font-size: 1.2rem; margin-bottom: 24px;">
-            {% if mode == "edit" %}
-            ✏️ Edit Page ID
-            {% else %}
-            ➕ Add New Page ID
-            {% endif %}
-        </h2>
+  <div class="card">
+    <h2 style="font-size: 1.2rem; margin-bottom: 24px">
+      {% if mode == "edit" %} ✏️ Edit Page ID {% else %} ➕ Add New Page ID {%
+      endif %}
+    </h2>
 
-        {% if error %}
-        <div class="alert alert-error">⚠️ {{ error }}</div>
-        {% endif %}
+    {% if error %}
+    <div class="alert alert-error">⚠️ {{ error }}</div>
+    {% endif %}
 
-        <form method="post" action="{% if mode == 'edit' %}/dashboard/edit/{{ page_item.id }}{% else %}/dashboard/add{% endif %}">
-            <div class="form-group">
-                <label for="page_id">Page ID *</label>
-                <input type="text" id="page_id" name="page_id" 
-                       value="{{ page_item.page_id if page_item else '' }}" 
-                       placeholder="e.g. fb201283739733566" required>
-                <small style="color: #94a3b8; font-size: 0.8rem;">Facebook Page ID starting with 'fb'</small>
-            </div>
+    <form
+      method="post"
+      action="{% if mode == 'edit' %}/dashboard/edit/{{ page_item.id }}{% else %}/dashboard/add{% endif %}"
+    >
+      <div class="form-group">
+        <label for="page_id">Page ID *</label>
+        <input
+          type="text"
+          id="page_id"
+          name="page_id"
+          value="{{ page_item.page_id if page_item else '' }}"
+          placeholder="e.g. fb201283739733566"
+          required
+        />
+        <small style="color: #94a3b8; font-size: 0.8rem"
+          >Facebook Page ID starting with 'fb'</small
+        >
+      </div>
 
-            <div class="form-group">
-                <label for="name">Name *</label>
-                <input type="text" id="name" name="name" 
-                       value="{{ page_item.name if page_item else '' }}" 
-                       placeholder="e.g. ro54_s" required>
-                <small style="color: #94a3b8; font-size: 0.8rem;">Short identifier name</small>
-            </div>
+      <div class="form-group">
+        <label for="name">Name *</label>
+        <input
+          type="text"
+          id="name"
+          name="name"
+          value="{{ page_item.name if page_item else '' }}"
+          placeholder="e.g. ro54_s"
+          required
+        />
+        <small style="color: #94a3b8; font-size: 0.8rem"
+          >Short identifier name</small
+        >
+      </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                <div class="form-group">
-                    <label for="user_name">User *</label>
-                    <input type="text" id="user_name" name="user_name" list="user_list"
-                           value="{{ page_item.user if page_item else '' }}" 
-                           placeholder="e.g. Aarti" required>
-                    <datalist id="user_list">
-                        {% for u in all_users %}
-                        <option value="{{ u }}">
-                        {% endfor %}
-                    </datalist>
-                </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
+        <div class="form-group">
+          <label for="user_name">User *</label>
+          <input
+            type="text"
+            id="user_name"
+            name="user_name"
+            list="user_list"
+            value="{{ page_item.user if page_item else '' }}"
+            placeholder="e.g. Aarti"
+            required
+          />
+          <datalist id="user_list">
+            {% for u in all_users %}
+            <option value="{{ u }}">{% endfor %}</option>
+          </datalist>
+        </div>
 
-                <div class="form-group">
-                    <label for="tl">Team Lead *</label>
-                    <input type="text" id="tl" name="tl" list="tl_list"
-                           value="{{ page_item.tl if page_item else '' }}" 
-                           placeholder="e.g. Sumant sir" required>
-                    <datalist id="tl_list">
-                        {% for t in all_tls %}
-                        <option value="{{ t }}">
-                        {% endfor %}
-                    </datalist>
-                </div>
-            </div>
+        <div class="form-group">
+          <label for="tl">Team Lead *</label>
+          <input
+            type="text"
+            id="tl"
+            name="tl"
+            list="tl_list"
+            value="{{ page_item.tl if page_item else '' }}"
+            placeholder="e.g. Sumant sir"
+            required
+          />
+          <datalist id="tl_list">
+            {% for t in all_tls %}
+            <option value="{{ t }}">{% endfor %}</option>
+          </datalist>
+        </div>
+      </div>
 
-            <div class="form-group">
-                <label for="account_name">Account Name *</label>
-                <input type="text" id="account_name" name="account_name" 
-                       value="{{ page_item.account_name if page_item else '' }}" 
-                       placeholder="e.g. BHUella" required>
-            </div>
+      <div class="form-group">
+        <label for="account_name">Account Name *</label>
+        <input
+          type="text"
+          id="account_name"
+          name="account_name"
+          value="{{ page_item.account_name if page_item else '' }}"
+          placeholder="e.g. BHUella"
+          required
+        />
+      </div>
 
-            <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" name="is_active" value="true"
-                           {% if mode == 'add' or (page_item and page_item.is_active) %}checked{% endif %}
-                           style="width: auto; accent-color: #22c55e;">
-                    Active (included in ManyChat automation)
-                </label>
-            </div>
+      <div class="form-group">
+        <label
+          style="display: flex; align-items: center; gap: 8px; cursor: pointer"
+        >
+          <input
+            type="checkbox"
+            name="is_active"
+            value="true"
+            {%
+            if
+            mode=""
+            ="add"
+            or
+            (page_item
+            and
+            page_item.is_active)
+            %}checked{%
+            endif
+            %}
+            style="width: auto; accent-color: #22c55e"
+          />
+          Active (included in ManyChat automation)
+        </label>
+      </div>
 
-            {% if page_item %}
-            <div style="margin-bottom: 16px; padding: 12px; background: #f8fafc; border-radius: 8px; font-size: 0.85rem; color: #64748b;">
-                <div>Created: {{ page_item.created_at.strftime('%Y-%m-%d %H:%M') if page_item.created_at else 'N/A' }}</div>
-                <div>Updated: {{ page_item.updated_at.strftime('%Y-%m-%d %H:%M') if page_item.updated_at else 'N/A' }}</div>
-            </div>
-            {% endif %}
+      {% if page_item %}
+      <div
+        style="
+          margin-bottom: 16px;
+          padding: 12px;
+          background: #f8fafc;
+          border-radius: 8px;
+          font-size: 0.85rem;
+          color: #64748b;
+        "
+      >
+        <div>
+          Created: {{ page_item.created_at.strftime('%Y-%m-%d %H:%M') if
+          page_item.created_at else 'N/A' }}
+        </div>
+        <div>
+          Updated: {{ page_item.updated_at.strftime('%Y-%m-%d %H:%M') if
+          page_item.updated_at else 'N/A' }}
+        </div>
+      </div>
+      {% endif %}
 
-            <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
-                <a href="/dashboard" class="btn btn-outline">Cancel</a>
-                <button type="submit" class="btn btn-primary">
-                    {% if mode == "edit" %}💾 Save Changes{% else %}➕ Add Page{% endif %}
-                </button>
-            </div>
-        </form>
-    </div>
+      <div
+        style="
+          display: flex;
+          gap: 12px;
+          justify-content: flex-end;
+          margin-top: 24px;
+        "
+      >
+        <a href="/dashboard" class="btn btn-outline">Cancel</a>
+        <button type="submit" class="btn btn-primary">
+          {% if mode == "edit" %}💾 Save Changes{% else %}➕ Add Page{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
 {% endblock %}
