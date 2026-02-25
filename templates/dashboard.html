@@ -1,0 +1,483 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - ManyChat Page IDs{% endblock %}
+
+{% block body %}
+<!-- Navbar -->
+<nav class="navbar">
+    <a href="/dashboard" class="navbar-brand">
+        📊 <span>ManyChat</span> Dashboard
+    </a>
+    <div class="navbar-right">
+        <div class="navbar-user">
+            👤 {{ user.full_name }}
+            <span class="role-badge">{{ user.role }}</span>
+        </div>
+        <a href="/logout" class="btn-logout">🚪 Logout</a>
+    </div>
+</nav>
+
+<div class="container">
+    <!-- Success/Error Messages -->
+    {% set msg = request.query_params.get('msg', '') %}
+    {% if msg == 'added' %}
+    <div class="alert alert-success" id="flash-msg">✅ Page ID added successfully!</div>
+    {% elif msg == 'updated' %}
+    <div class="alert alert-success" id="flash-msg">✅ Page ID updated successfully!</div>
+    {% elif msg == 'deleted_all' %}
+    <div class="alert alert-success" id="flash-msg">✅ All page IDs deleted successfully!</div>
+    {% elif msg == 'csv_uploaded' %}
+    <div class="alert alert-success" id="flash-msg">✅ CSV uploaded and imported successfully!</div>
+    {% elif msg == 'not_found' %}
+    <div class="alert alert-error" id="flash-msg">❌ Page ID not found!</div>
+    {% endif %}
+
+    <!-- Stats Row -->
+    <div class="stats-row">
+        <div class="stat-card blue">
+            <div class="stat-value">{{ total_all }}</div>
+            <div class="stat-label">Total Pages</div>
+        </div>
+        <div class="stat-card green">
+            <div class="stat-value">{{ active_count }}</div>
+            <div class="stat-label">Active Pages</div>
+        </div>
+        <div class="stat-card orange">
+            <div class="stat-value">{{ total_all - active_count }}</div>
+            <div class="stat-label">Inactive Pages</div>
+        </div>
+        <div class="stat-card purple">
+            <div class="stat-value">{{ all_users|length }}</div>
+            <div class="stat-label">Users</div>
+        </div>
+    </div>
+
+    <!-- Main Card -->
+    <div class="card">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+            <h2 style="font-size: 1.2rem;">📋 Page IDs Management</h2>
+            {% if user.role in ['admin', 'editor'] %}
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn btn-primary" onclick="document.getElementById('uploadModal').classList.add('show')">📤 Upload CSV</button>
+                <a href="/dashboard/add" class="btn btn-success">➕ Add New Page</a>
+                {% if user.role == 'admin' %}
+                <button class="btn btn-danger" onclick="document.getElementById('deleteAllModal').classList.add('show')">🗑️ Delete All</button>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Filters -->
+        <form method="get" action="/dashboard" class="filters-bar">
+            <input type="text" name="search" value="{{ search }}" placeholder="🔍 Search pages..." style="flex: 1; min-width: 200px;">
+            <select name="user_filter">
+                <option value="">All Users</option>
+                {% for u in all_users %}
+                <option value="{{ u }}" {% if u == user_filter %}selected{% endif %}>{{ u }}</option>
+                {% endfor %}
+            </select>
+            <select name="tl_filter">
+                <option value="">All Team Leads</option>
+                {% for t in all_tls %}
+                <option value="{{ t }}" {% if t == tl_filter %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary">🔍 Filter</button>
+            {% if search or user_filter or tl_filter %}
+            <a href="/dashboard" class="btn btn-outline">✖ Clear</a>
+            {% endif %}
+        </form>
+
+        <!-- Results Count -->
+        <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 12px;">
+            Showing {{ items|length }} of {{ total }} results
+            {% if search %} for "<strong>{{ search }}</strong>"{% endif %}
+            {% if user_filter %} • User: <strong>{{ user_filter }}</strong>{% endif %}
+            {% if tl_filter %} • TL: <strong>{{ tl_filter }}</strong>{% endif %}
+        </div>
+
+        <!-- Table -->
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Page ID</th>
+                        <th>Name</th>
+                        <th>User</th>
+                        <th>Team Lead</th>
+                        <th>Account Name</th>
+                        <th>Status</th>
+                        {% if user.role in ['admin', 'editor'] %}
+                        <th>Actions</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if items %}
+                    {% for item in items %}
+                    <tr id="row-{{ item.id }}">
+                        <td style="color: #94a3b8; font-size: 0.8rem;">{{ (page - 1) * per_page + loop.index }}</td>
+                        <td>
+                            <code style="background: #f1f5f9; padding: 2px 8px; border-radius: 4px; font-size: 0.82rem;">{{ item.page_id }}</code>
+                        </td>
+                        <td><strong>{{ item.name }}</strong></td>
+                        <td>{{ item.user }}</td>
+                        <td>{{ item.tl }}</td>
+                        <td>{{ item.account_name }}</td>
+                        <td>
+                            {% if item.is_active %}
+                            <span class="badge badge-active">✅ Active</span>
+                            {% else %}
+                            <span class="badge badge-inactive">❌ Inactive</span>
+                            {% endif %}
+                        </td>
+                        {% if user.role in ['admin', 'editor'] %}
+                        <td>
+                            <div class="actions-cell">
+                                <a href="/dashboard/edit/{{ item.id }}" class="btn btn-warning btn-sm" title="Edit">✏️</a>
+                                {% if item.is_active %}
+                                <button class="btn btn-sm btn-toggle-deactivate"
+                                        onclick="toggleActive({{ item.id }})"
+                                        title="Deactivate">⏸️</button>
+                                {% else %}
+                                <button class="btn btn-sm btn-toggle-activate"
+                                        onclick="toggleActive({{ item.id }})"
+                                        title="Activate">▶️</button>
+                                {% endif %}
+                                <button class="btn btn-danger btn-sm" onclick="confirmDelete({{ item.id }}, '{{ item.page_id }}')" title="Delete">🗑️</button>
+                            </div>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 40px; color: #94a3b8;">
+                            <div style="font-size: 2rem; margin-bottom: 8px;">📭</div>
+                            No page IDs found.
+                            {% if search or user_filter or tl_filter %}
+                            <br><a href="/dashboard">Clear filters</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if total_pages > 1 %}
+        <div class="pagination">
+            {% if page > 1 %}
+            <a href="/dashboard?page=1&per_page={{ per_page }}&search={{ search }}&user_filter={{ user_filter }}&tl_filter={{ tl_filter }}">«</a>
+            <a href="/dashboard?page={{ page - 1 }}&per_page={{ per_page }}&search={{ search }}&user_filter={{ user_filter }}&tl_filter={{ tl_filter }}">‹</a>
+            {% else %}
+            <span class="disabled">«</span>
+            <span class="disabled">‹</span>
+            {% endif %}
+
+            {% set start_page = [1, page - 3] | max %}
+            {% set end_page = [total_pages, page + 3] | min %}
+
+            {% if start_page > 1 %}
+            <a href="/dashboard?page=1&per_page={{ per_page }}&search={{ search }}&user_filter={{ user_filter }}&tl_filter={{ tl_filter }}">1</a>
+            {% if start_page > 2 %}<span class="disabled">...</span>{% endif %}
+            {% endif %}
+
+            {% for p in range(start_page, end_page + 1) %}
+            {% if p == page %}
+            <span class="active">{{ p }}</span>
+            {% else %}
+            <a href="/dashboard?page={{ p }}&per_page={{ per_page }}&search={{ search }}&user_filter={{ user_filter }}&tl_filter={{ tl_filter }}">{{ p }}</a>
+            {% endif %}
+            {% endfor %}
+
+            {% if end_page < total_pages %}
+            {% if end_page < total_pages - 1 %}<span class="disabled">...</span>{% endif %}
+            <a href="/dashboard?page={{ total_pages }}&per_page={{ per_page }}&search={{ search }}&user_filter={{ user_filter }}&tl_filter={{ tl_filter }}">{{ total_pages }}</a>
+            {% endif %}
+
+            {% if page < total_pages %}
+            <a href="/dashboard?page={{ page + 1 }}&per_page={{ per_page }}&search={{ search }}&user_filter={{ user_filter }}&tl_filter={{ tl_filter }}">›</a>
+            <a href="/dashboard?page={{ total_pages }}&per_page={{ per_page }}&search={{ search }}&user_filter={{ user_filter }}&tl_filter={{ tl_filter }}">»</a>
+            {% else %}
+            <span class="disabled">›</span>
+            <span class="disabled">»</span>
+            {% endif %}
+        </div>
+        <div class="pagination-info">
+            Page {{ page }} of {{ total_pages }} • {{ total }} total records
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-overlay" id="deleteModal">
+    <div class="modal-box">
+        <h3>🗑️ Confirm Delete</h3>
+        <p>Are you sure you want to delete page <strong id="deletePageId"></strong>? This action cannot be undone.</p>
+        <div class="modal-actions">
+            <button class="btn btn-outline" onclick="closeDeleteModal()">Cancel</button>
+            <button class="btn btn-danger" id="deleteConfirmBtn" onclick="executeDelete()">Delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete ALL Confirmation Modal -->
+<div class="modal-overlay" id="deleteAllModal">
+    <div class="modal-box">
+        <h3>⚠️ Delete ALL Page IDs</h3>
+        <p style="color: #dc2626; font-weight: 600;">This will permanently delete ALL {{ total_all }} page IDs from the database. This action cannot be undone!</p>
+        <p style="margin-bottom: 16px;">Type <code style="background:#fee2e2; padding:2px 8px; border-radius:4px; font-weight:700; color:#dc2626;">DELETE ALL</code> to confirm:</p>
+        <input type="text" id="deleteAllConfirmInput" placeholder="Type DELETE ALL here..." 
+               style="width:100%; padding:10px 14px; border:2px solid #fca5a5; border-radius:8px; font-size:0.95rem; margin-bottom:20px;">
+        <div class="modal-actions">
+            <button class="btn btn-outline" onclick="closeDeleteAllModal()">Cancel</button>
+            <button class="btn btn-danger" id="deleteAllBtn" onclick="executeDeleteAll()">🗑️ Delete All Pages</button>
+        </div>
+    </div>
+</div>
+
+<!-- Upload CSV Modal -->
+<div class="modal-overlay" id="uploadModal">
+    <div class="modal-box" style="max-width: 560px;">
+        <h3>📤 Upload CSV File</h3>
+        <p>Upload a CSV file with page IDs data. Duplicate page IDs already in the database will be skipped.</p>
+        
+        <div class="csv-format-info">
+            <strong>Required CSV columns:</strong>
+            <code>page_id, name, user, tl, account_name</code>
+            <div style="margin-top:6px; font-size:0.8rem; color:#64748b;">
+                Column aliases accepted: <em>id</em> (for page_id), <em>team_lead</em> (for tl), <em>account</em> (for account_name)
+            </div>
+        </div>
+
+        <form id="csvUploadForm" enctype="multipart/form-data">
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">Drag & drop CSV file here</div>
+                <div class="upload-subtext">or click to browse</div>
+                <input type="file" id="csvFileInput" name="csv_file" accept=".csv" style="display:none;">
+            </div>
+            <div id="fileInfo" style="display:none; margin-top:12px; padding:10px 14px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px;">
+                <span id="fileName" style="font-weight:600;"></span>
+                <span id="fileSize" style="color:#64748b; margin-left:8px;"></span>
+                <button type="button" onclick="clearFile()" style="float:right; background:none; border:none; cursor:pointer; color:#ef4444; font-size:1.1rem;">✕</button>
+            </div>
+        </form>
+
+        <div id="uploadResult" style="display:none; margin-top:12px;"></div>
+
+        <div class="modal-actions" style="margin-top: 20px;">
+            <button class="btn btn-outline" onclick="closeUploadModal()">Cancel</button>
+            <button class="btn btn-primary" id="uploadBtn" onclick="executeUpload()" disabled>📤 Upload & Import</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Auto-hide flash messages
+    setTimeout(() => {
+        const flash = document.getElementById('flash-msg');
+        if (flash) flash.style.display = 'none';
+    }, 4000);
+
+    // ==========================================
+    // Single Delete functionality
+    // ==========================================
+    let deleteItemId = null;
+    function confirmDelete(id, pageId) {
+        deleteItemId = id;
+        document.getElementById('deletePageId').textContent = pageId;
+        document.getElementById('deleteModal').classList.add('show');
+    }
+    function closeDeleteModal() {
+        document.getElementById('deleteModal').classList.remove('show');
+        deleteItemId = null;
+    }
+    async function executeDelete() {
+        if (!deleteItemId) return;
+        try {
+            const resp = await fetch(`/dashboard/delete/${deleteItemId}`, { method: 'POST' });
+            const data = await resp.json();
+            if (data.success) {
+                document.getElementById(`row-${deleteItemId}`).remove();
+                closeDeleteModal();
+            } else {
+                alert('Error: ' + (data.detail || 'Failed to delete'));
+            }
+        } catch (e) {
+            alert('Error: ' + e.message);
+        }
+    }
+
+    // ==========================================
+    // Toggle active status
+    // ==========================================
+    async function toggleActive(id) {
+        try {
+            const resp = await fetch(`/dashboard/toggle/${id}`, { method: 'POST' });
+            const data = await resp.json();
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + (data.detail || 'Failed to toggle'));
+            }
+        } catch (e) {
+            alert('Error: ' + e.message);
+        }
+    }
+
+    // ==========================================
+    // Delete ALL functionality
+    // ==========================================
+    function closeDeleteAllModal() {
+        document.getElementById('deleteAllModal').classList.remove('show');
+        document.getElementById('deleteAllConfirmInput').value = '';
+    }
+    async function executeDeleteAll() {
+        const input = document.getElementById('deleteAllConfirmInput').value.trim();
+        if (input !== 'DELETE ALL') {
+            alert('Please type "DELETE ALL" exactly to confirm.');
+            return;
+        }
+        const btn = document.getElementById('deleteAllBtn');
+        btn.disabled = true;
+        btn.textContent = '⏳ Deleting...';
+        try {
+            const resp = await fetch('/dashboard/delete-all', { method: 'POST' });
+            const data = await resp.json();
+            if (data.success) {
+                closeDeleteAllModal();
+                window.location.href = '/dashboard?msg=deleted_all';
+            } else {
+                alert('Error: ' + (data.detail || 'Failed to delete all'));
+                btn.disabled = false;
+                btn.textContent = '🗑️ Delete All Pages';
+            }
+        } catch (e) {
+            alert('Error: ' + e.message);
+            btn.disabled = false;
+            btn.textContent = '🗑️ Delete All Pages';
+        }
+    }
+
+    // ==========================================
+    // CSV Upload functionality
+    // ==========================================
+    let selectedFile = null;
+    const uploadZone = document.getElementById('uploadZone');
+    const csvFileInput = document.getElementById('csvFileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const uploadBtn = document.getElementById('uploadBtn');
+
+    // Click to browse
+    uploadZone.addEventListener('click', () => csvFileInput.click());
+
+    // File input change
+    csvFileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) setFile(e.target.files[0]);
+    });
+
+    // Drag and drop
+    uploadZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadZone.classList.add('drag-over');
+    });
+    uploadZone.addEventListener('dragleave', () => {
+        uploadZone.classList.remove('drag-over');
+    });
+    uploadZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadZone.classList.remove('drag-over');
+        if (e.dataTransfer.files.length > 0) {
+            const file = e.dataTransfer.files[0];
+            if (file.name.toLowerCase().endsWith('.csv')) {
+                setFile(file);
+            } else {
+                alert('Please drop a .csv file only.');
+            }
+        }
+    });
+
+    function setFile(file) {
+        selectedFile = file;
+        document.getElementById('fileName').textContent = file.name;
+        const sizeKB = (file.size / 1024).toFixed(1);
+        document.getElementById('fileSize').textContent = `(${sizeKB} KB)`;
+        fileInfo.style.display = 'block';
+        uploadZone.style.display = 'none';
+        uploadBtn.disabled = false;
+        document.getElementById('uploadResult').style.display = 'none';
+    }
+
+    function clearFile() {
+        selectedFile = null;
+        csvFileInput.value = '';
+        fileInfo.style.display = 'none';
+        uploadZone.style.display = 'flex';
+        uploadBtn.disabled = true;
+        document.getElementById('uploadResult').style.display = 'none';
+    }
+
+    function closeUploadModal() {
+        document.getElementById('uploadModal').classList.remove('show');
+        clearFile();
+    }
+
+    async function executeUpload() {
+        if (!selectedFile) return;
+
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = '⏳ Uploading...';
+
+        const formData = new FormData();
+        formData.append('csv_file', selectedFile);
+
+        try {
+            const resp = await fetch('/dashboard/upload-csv', { method: 'POST', body: formData });
+            const data = await resp.json();
+            const resultDiv = document.getElementById('uploadResult');
+            resultDiv.style.display = 'block';
+
+            if (data.success) {
+                let html = `<div class="alert alert-success" style="margin-bottom:0;">
+                    <div>
+                        <strong>✅ Upload Complete!</strong><br>
+                        📥 Imported: <strong>${data.imported}</strong> &nbsp;|&nbsp; 
+                        ⏭️ Skipped (duplicates): <strong>${data.skipped}</strong> &nbsp;|&nbsp;
+                        📄 Total rows: <strong>${data.total_rows}</strong>`;
+                if (data.errors && data.errors.length > 0) {
+                    html += `<br><br>⚠️ Warnings:<ul style="margin:4px 0 0 16px; font-size:0.82rem;">`;
+                    data.errors.forEach(e => html += `<li>${e}</li>`);
+                    html += `</ul>`;
+                }
+                html += `</div></div>`;
+                resultDiv.innerHTML = html;
+
+                // Auto-reload after 2 seconds if any imported
+                if (data.imported > 0) {
+                    setTimeout(() => {
+                        window.location.href = '/dashboard?msg=csv_uploaded';
+                    }, 2000);
+                }
+            } else {
+                resultDiv.innerHTML = `<div class="alert alert-error" style="margin-bottom:0;">
+                    ❌ <strong>Upload Failed:</strong> ${data.detail || 'Unknown error'}
+                </div>`;
+            }
+        } catch (e) {
+            document.getElementById('uploadResult').style.display = 'block';
+            document.getElementById('uploadResult').innerHTML = `<div class="alert alert-error" style="margin-bottom:0;">
+                ❌ <strong>Error:</strong> ${e.message}
+            </div>`;
+        }
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = '📤 Upload & Import';
+    }
+</script>
+{% endblock %}

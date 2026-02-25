@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Login - ManyChat Dashboard{% endblock %}
+
+{% block body %}
+<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);">
+    <div style="background: #fff; border-radius: 16px; padding: 40px; width: 400px; max-width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+        <div style="text-align: center; margin-bottom: 32px;">
+            <div style="font-size: 2.5rem; margin-bottom: 8px;">📊</div>
+            <h1 style="font-size: 1.5rem; color: #1a1a2e; margin-bottom: 4px;">ManyChat Dashboard</h1>
+            <p style="color: #64748b; font-size: 0.9rem;">Sign in to manage Page IDs</p>
+        </div>
+
+        {% if error %}
+        <div class="alert alert-error">
+            ⚠️ {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="post" action="/login">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" placeholder="Enter your username" required autofocus>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" placeholder="Enter your password" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 12px; font-size: 1rem; margin-top: 8px;">
+                🔐 Sign In
+            </button>
+        </form>
+
+        <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
+            <p style="font-size: 0.8rem; color: #94a3b8;">ManyChat Page IDs Management System</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
