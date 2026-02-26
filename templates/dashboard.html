@@ -118,7 +118,7 @@ endblock %} {% block body %}
       <select name="user_filter">
         <option value="">All Users</option>
         {% for u in all_users %}
-        <option value="{{ u }}" {% if u="" ="user_filter" %}selected{% endif %}>
+        <option value="{{ u }}" {% if u == user_filter %}selected{% endif %}>
           {{ u }}
         </option>
         {% endfor %}
@@ -126,7 +126,7 @@ endblock %} {% block body %}
       <select name="tl_filter">
         <option value="">All Team Leads</option>
         {% for t in all_tls %}
-        <option value="{{ t }}" {% if t="" ="tl_filter" %}selected{% endif %}>
+        <option value="{{ t }}" {% if t == tl_filter %}selected{% endif %}>
           {{ t }}
         </option>
         {% endfor %}
