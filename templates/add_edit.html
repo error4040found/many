@@ -89,7 +89,8 @@
           />
           <datalist id="user_list">
             {% for u in all_users %}
-            <option value="{{ u }}">{% endfor %}</option>
+            <option value="{{ u }}"></option>
+            {% endfor %}
           </datalist>
         </div>
 
@@ -106,7 +107,8 @@
           />
           <datalist id="tl_list">
             {% for t in all_tls %}
-            <option value="{{ t }}">{% endfor %}</option>
+            <option value="{{ t }}"></option>
+            {% endfor %}
           </datalist>
         </div>
       </div>
@@ -131,17 +133,7 @@
             type="checkbox"
             name="is_active"
             value="true"
-            {%
-            if
-            mode=""
-            ="add"
-            or
-            (page_item
-            and
-            page_item.is_active)
-            %}checked{%
-            endif
-            %}
+            {% if mode == "add" or (page_item and page_item.is_active) %}checked{% endif %}
             style="width: auto; accent-color: #22c55e"
           />
           Active (included in ManyChat automation)
