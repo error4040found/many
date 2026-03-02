@@ -48,6 +48,15 @@ from auth import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("manychat_dashboard")
 
+
+def normalize_name(value: str) -> str:
+    """Normalize a name to title case for consistent storage.
+    e.g. 'subhajit sir' and 'Subhajit sir' both become 'Subhajit Sir'
+    """
+    if not value or not value.strip():
+        return value
+    return value.strip().title()
+
 # ============================================
 # App Initialization
 # ============================================
@@ -78,9 +87,29 @@ def startup_event():
     db = SessionLocal()
     try:
         create_default_users(db)
+        # Normalize existing user/tl names to title case for consistency
+        _normalize_existing_data(db)
     finally:
         db.close()
     logger.info("✅ Dashboard ready!")
+
+
+def _normalize_existing_data(db: Session):
+    """Normalize user and tl fields in existing records to title case."""
+    pages = db.query(PageID).all()
+    updated = 0
+    for p in pages:
+        new_user = normalize_name(p.user) if p.user else p.user
+        new_tl = normalize_name(p.tl) if p.tl else p.tl
+        new_account = normalize_name(p.account_name) if p.account_name else p.account_name
+        if new_user != p.user or new_tl != p.tl or new_account != p.account_name:
+            p.user = new_user
+            p.tl = new_tl
+            p.account_name = new_account
+            updated += 1
+    if updated:
+        db.commit()
+        logger.info(f"✅ Normalized {updated} records (user/tl/account name casing)")
 
 
 # ============================================
@@ -205,13 +234,13 @@ async def dashboard_page(
             )
         )
 
-    # Apply user filter
+    # Apply user filter (case-insensitive)
     if user_filter:
-        query = query.filter(PageID.user == user_filter)
+        query = query.filter(func.lower(PageID.user) == user_filter.lower())
 
-    # Apply TL filter
+    # Apply TL filter (case-insensitive)
     if tl_filter:
-        query = query.filter(PageID.tl == tl_filter)
+        query = query.filter(func.lower(PageID.tl) == tl_filter.lower())
 
     # Get total count
     total = query.count()
@@ -225,9 +254,12 @@ async def dashboard_page(
     offset = (page - 1) * per_page
     items = query.order_by(PageID.id.asc()).offset(offset).limit(per_page).all()
 
-    # Get unique users and TLs for filter dropdowns
-    all_users = db.query(PageID.user).distinct().order_by(PageID.user).all()
-    all_tls = db.query(PageID.tl).distinct().order_by(PageID.tl).all()
+    # Get unique users and TLs for filter dropdowns (case-insensitive distinct)
+    all_users_raw = db.query(PageID.user).distinct().order_by(PageID.user).all()
+    all_tls_raw = db.query(PageID.tl).distinct().order_by(PageID.tl).all()
+    # Deduplicate by lowercase to merge case variants
+    all_users = sorted({normalize_name(u[0]) for u in all_users_raw if u[0]})
+    all_tls = sorted({normalize_name(t[0]) for t in all_tls_raw if t[0]})
 
     # Stats
     total_all = db.query(PageID).count()
@@ -246,8 +278,8 @@ async def dashboard_page(
             "search": search,
             "user_filter": user_filter,
             "tl_filter": tl_filter,
-            "all_users": [u[0] for u in all_users],
-            "all_tls": [t[0] for t in all_tls],
+            "all_users": all_users,
+            "all_tls": all_tls,
             "total_all": total_all,
             "active_count": active_count,
         },
@@ -263,8 +295,8 @@ async def add_page_form(request: Request, db: Session = Depends(get_db)):
     if current_user["role"] not in ("admin", "editor"):
         return RedirectResponse(url="/dashboard", status_code=302)
 
-    all_users = db.query(PageID.user).distinct().order_by(PageID.user).all()
-    all_tls = db.query(PageID.tl).distinct().order_by(PageID.tl).all()
+    all_users_raw = db.query(PageID.user).distinct().order_by(PageID.user).all()
+    all_tls_raw = db.query(PageID.tl).distinct().order_by(PageID.tl).all()
 
     return templates.TemplateResponse(
         "add_edit.html",
@@ -273,8 +305,8 @@ async def add_page_form(request: Request, db: Session = Depends(get_db)):
             "user": current_user,
             "mode": "add",
             "page_item": None,
-            "all_users": [u[0] for u in all_users],
-            "all_tls": [t[0] for t in all_tls],
+            "all_users": sorted({normalize_name(u[0]) for u in all_users_raw if u[0]}),
+            "all_tls": sorted({normalize_name(t[0]) for t in all_tls_raw if t[0]}),
             "error": None,
         },
     )
@@ -299,8 +331,8 @@ async def add_page_submit(
     # Check if page_id already exists
     existing = db.query(PageID).filter(PageID.page_id == page_id).first()
     if existing:
-        all_users = db.query(PageID.user).distinct().order_by(PageID.user).all()
-        all_tls = db.query(PageID.tl).distinct().order_by(PageID.tl).all()
+        all_users_raw = db.query(PageID.user).distinct().order_by(PageID.user).all()
+        all_tls_raw = db.query(PageID.tl).distinct().order_by(PageID.tl).all()
         return templates.TemplateResponse(
             "add_edit.html",
             {
@@ -308,8 +340,8 @@ async def add_page_submit(
                 "user": current_user,
                 "mode": "add",
                 "page_item": None,
-                "all_users": [u[0] for u in all_users],
-                "all_tls": [t[0] for t in all_tls],
+                "all_users": sorted({normalize_name(u[0]) for u in all_users_raw if u[0]}),
+                "all_tls": sorted({normalize_name(t[0]) for t in all_tls_raw if t[0]}),
                 "error": f"Page ID '{page_id}' already exists!",
             },
         )
@@ -317,9 +349,9 @@ async def add_page_submit(
     new_page = PageID(
         page_id=page_id,
         name=name,
-        user=user_name,
-        tl=tl,
-        account_name=account_name,
+        user=normalize_name(user_name),
+        tl=normalize_name(tl),
+        account_name=normalize_name(account_name),
         is_active=is_active,
     )
     db.add(new_page)
@@ -341,8 +373,8 @@ async def edit_page_form(request: Request, item_id: int, db: Session = Depends(g
     if not page_item:
         return RedirectResponse(url="/dashboard?msg=not_found", status_code=302)
 
-    all_users = db.query(PageID.user).distinct().order_by(PageID.user).all()
-    all_tls = db.query(PageID.tl).distinct().order_by(PageID.tl).all()
+    all_users_raw = db.query(PageID.user).distinct().order_by(PageID.user).all()
+    all_tls_raw = db.query(PageID.tl).distinct().order_by(PageID.tl).all()
 
     return templates.TemplateResponse(
         "add_edit.html",
@@ -351,8 +383,8 @@ async def edit_page_form(request: Request, item_id: int, db: Session = Depends(g
             "user": current_user,
             "mode": "edit",
             "page_item": page_item,
-            "all_users": [u[0] for u in all_users],
-            "all_tls": [t[0] for t in all_tls],
+            "all_users": sorted({normalize_name(u[0]) for u in all_users_raw if u[0]}),
+            "all_tls": sorted({normalize_name(t[0]) for t in all_tls_raw if t[0]}),
             "error": None,
         },
     )
@@ -383,8 +415,8 @@ async def edit_page_submit(
     if page_id != page_item.page_id:
         existing = db.query(PageID).filter(PageID.page_id == page_id).first()
         if existing:
-            all_users = db.query(PageID.user).distinct().order_by(PageID.user).all()
-            all_tls = db.query(PageID.tl).distinct().order_by(PageID.tl).all()
+            all_users_raw = db.query(PageID.user).distinct().order_by(PageID.user).all()
+            all_tls_raw = db.query(PageID.tl).distinct().order_by(PageID.tl).all()
             return templates.TemplateResponse(
                 "add_edit.html",
                 {
@@ -392,17 +424,17 @@ async def edit_page_submit(
                     "user": current_user,
                     "mode": "edit",
                     "page_item": page_item,
-                    "all_users": [u[0] for u in all_users],
-                    "all_tls": [t[0] for t in all_tls],
+                    "all_users": sorted({normalize_name(u[0]) for u in all_users_raw if u[0]}),
+                    "all_tls": sorted({normalize_name(t[0]) for t in all_tls_raw if t[0]}),
                     "error": f"Page ID '{page_id}' already exists!",
                 },
             )
 
     page_item.page_id = page_id
     page_item.name = name
-    page_item.user = user_name
-    page_item.tl = tl
-    page_item.account_name = account_name
+    page_item.user = normalize_name(user_name)
+    page_item.tl = normalize_name(tl)
+    page_item.account_name = normalize_name(account_name)
     page_item.is_active = is_active
     db.commit()
     logger.info(f"✅ Page updated: {page_id} by {current_user['username']}")
@@ -563,9 +595,9 @@ async def upload_csv(request: Request, csv_file: UploadFile = File(...), db: Ses
                 new_page = PageID(
                     page_id=page_id_val,
                     name=name_val,
-                    user=user_val or "Unassigned",
-                    tl=tl_val or "Unassigned",
-                    account_name=account_name_val or "Unknown",
+                    user=normalize_name(user_val) or "Unassigned",
+                    tl=normalize_name(tl_val) or "Unassigned",
+                    account_name=normalize_name(account_name_val) or "Unknown",
                     is_active=True,
                 )
                 db.add(new_page)
@@ -836,9 +868,9 @@ async def api_bulk_import(
             new_page = PageID(
                 page_id=page_id,
                 name=page_data.get("name", ""),
-                user=page_data.get("user", ""),
-                tl=page_data.get("tl", ""),
-                account_name=page_data.get("account_name", ""),
+                user=normalize_name(page_data.get("user", "")),
+                tl=normalize_name(page_data.get("tl", "")),
+                account_name=normalize_name(page_data.get("account_name", "")),
                 is_active=True,
             )
             db.add(new_page)
