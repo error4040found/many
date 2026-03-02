@@ -22,7 +22,17 @@ import logging
 from datetime import datetime
 from typing import Optional, List
 
-from fastapi import FastAPI, Request, Response, Depends, HTTPException, Form, Query, UploadFile, File
+from fastapi import (
+    FastAPI,
+    Request,
+    Response,
+    Depends,
+    HTTPException,
+    Form,
+    Query,
+    UploadFile,
+    File,
+)
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -35,13 +45,23 @@ sys.path.insert(0, os.path.dirname(__file__))
 from database import get_db, init_db, SessionLocal
 from models import PageID, DashboardUser
 from schemas import (
-    PageIDCreate, PageIDUpdate, PageIDResponse, PageIDListResponse,
-    ManyChatPageFormat, ManyChatPagesResponse, MessageResponse,
-    LoginRequest, UserResponse,
+    PageIDCreate,
+    PageIDUpdate,
+    PageIDResponse,
+    PageIDListResponse,
+    ManyChatPageFormat,
+    ManyChatPagesResponse,
+    MessageResponse,
+    LoginRequest,
+    UserResponse,
 )
 from auth import (
-    authenticate_user, create_session, get_session,
-    destroy_session, create_default_users, hash_password
+    authenticate_user,
+    create_session,
+    get_session,
+    destroy_session,
+    create_default_users,
+    hash_password,
 )
 
 # Setup logging
@@ -56,6 +76,7 @@ def normalize_name(value: str) -> str:
     if not value or not value.strip():
         return value
     return value.strip().title()
+
 
 # ============================================
 # App Initialization
@@ -101,7 +122,9 @@ def _normalize_existing_data(db: Session):
     for p in pages:
         new_user = normalize_name(p.user) if p.user else p.user
         new_tl = normalize_name(p.tl) if p.tl else p.tl
-        new_account = normalize_name(p.account_name) if p.account_name else p.account_name
+        new_account = (
+            normalize_name(p.account_name) if p.account_name else p.account_name
+        )
         if new_user != p.user or new_tl != p.tl or new_account != p.account_name:
             p.user = new_user
             p.tl = new_tl
@@ -142,6 +165,7 @@ def require_editor(request: Request) -> dict:
 # ============================================
 # AUTH ROUTES (Dashboard)
 # ============================================
+
 
 @app.get("/login", response_class=HTMLResponse, tags=["Auth"])
 async def login_page(request: Request):
@@ -193,6 +217,7 @@ async def logout(request: Request):
 # ============================================
 # DASHBOARD ROUTES (HTML pages)
 # ============================================
+
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
@@ -340,7 +365,9 @@ async def add_page_submit(
                 "user": current_user,
                 "mode": "add",
                 "page_item": None,
-                "all_users": sorted({normalize_name(u[0]) for u in all_users_raw if u[0]}),
+                "all_users": sorted(
+                    {normalize_name(u[0]) for u in all_users_raw if u[0]}
+                ),
                 "all_tls": sorted({normalize_name(t[0]) for t in all_tls_raw if t[0]}),
                 "error": f"Page ID '{page_id}' already exists!",
             },
@@ -424,8 +451,12 @@ async def edit_page_submit(
                     "user": current_user,
                     "mode": "edit",
                     "page_item": page_item,
-                    "all_users": sorted({normalize_name(u[0]) for u in all_users_raw if u[0]}),
-                    "all_tls": sorted({normalize_name(t[0]) for t in all_tls_raw if t[0]}),
+                    "all_users": sorted(
+                        {normalize_name(u[0]) for u in all_users_raw if u[0]}
+                    ),
+                    "all_tls": sorted(
+                        {normalize_name(t[0]) for t in all_tls_raw if t[0]}
+                    ),
                     "error": f"Page ID '{page_id}' already exists!",
                 },
             )
@@ -459,7 +490,9 @@ async def delete_page(request: Request, item_id: int, db: Session = Depends(get_
 
 
 @app.post("/dashboard/toggle/{item_id}", tags=["Dashboard"])
-async def toggle_page_active(request: Request, item_id: int, db: Session = Depends(get_db)):
+async def toggle_page_active(
+    request: Request, item_id: int, db: Session = Depends(get_db)
+):
     """Toggle a page's active status"""
     current_user = get_current_user(request)
     if not current_user or current_user["role"] not in ("admin", "editor"):
@@ -473,36 +506,53 @@ async def toggle_page_active(request: Request, item_id: int, db: Session = Depen
     db.commit()
     status = "activated" if page_item.is_active else "deactivated"
     logger.info(f"🔄 Page {status}: {page_item.page_id} by {current_user['username']}")
-    return JSONResponse({"success": True, "is_active": page_item.is_active, "message": f"Page {status}"})
+    return JSONResponse(
+        {"success": True, "is_active": page_item.is_active, "message": f"Page {status}"}
+    )
 
 
 # ============================================
 # DELETE ALL
 # ============================================
 
+
 @app.post("/dashboard/delete-all", tags=["Dashboard"])
 async def delete_all_pages(request: Request, db: Session = Depends(get_db)):
     """Delete ALL page IDs from the database (admin only)"""
     current_user = get_current_user(request)
     if not current_user or current_user["role"] != "admin":
-        return JSONResponse({"success": False, "detail": "Only admin can delete all pages"}, status_code=403)
+        return JSONResponse(
+            {"success": False, "detail": "Only admin can delete all pages"},
+            status_code=403,
+        )
 
     count = db.query(PageID).count()
     if count == 0:
-        return JSONResponse({"success": True, "deleted": 0, "message": "No pages to delete"})
+        return JSONResponse(
+            {"success": True, "deleted": 0, "message": "No pages to delete"}
+        )
 
     db.query(PageID).delete()
     db.commit()
     logger.info(f"🗑️ ALL {count} pages deleted by {current_user['username']}")
-    return JSONResponse({"success": True, "deleted": count, "message": f"Successfully deleted all {count} page IDs"})
+    return JSONResponse(
+        {
+            "success": True,
+            "deleted": count,
+            "message": f"Successfully deleted all {count} page IDs",
+        }
+    )
 
 
 # ============================================
 # CSV UPLOAD
 # ============================================
 
+
 @app.post("/dashboard/upload-csv", tags=["Dashboard"])
-async def upload_csv(request: Request, csv_file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_csv(
+    request: Request, csv_file: UploadFile = File(...), db: Session = Depends(get_db)
+):
     """
     Upload a CSV file to bulk import page IDs.
     Expected CSV columns: page_id, name, user, tl, account_name
@@ -516,11 +566,16 @@ async def upload_csv(request: Request, csv_file: UploadFile = File(...), db: Ses
 
     # Validate file type
     if not csv_file.filename:
-        return JSONResponse({"success": False, "detail": "No file provided"}, status_code=400)
+        return JSONResponse(
+            {"success": False, "detail": "No file provided"}, status_code=400
+        )
 
     filename_lower = csv_file.filename.lower()
     if not filename_lower.endswith(".csv"):
-        return JSONResponse({"success": False, "detail": "Only .csv files are accepted"}, status_code=400)
+        return JSONResponse(
+            {"success": False, "detail": "Only .csv files are accepted"},
+            status_code=400,
+        )
 
     try:
         # Read file content
@@ -533,35 +588,55 @@ async def upload_csv(request: Request, csv_file: UploadFile = File(...), db: Ses
             text = content.decode("latin-1")
 
         if not text.strip():
-            return JSONResponse({"success": False, "detail": "CSV file is empty"}, status_code=400)
+            return JSONResponse(
+                {"success": False, "detail": "CSV file is empty"}, status_code=400
+            )
 
         # Parse CSV
         reader = csv.DictReader(io.StringIO(text))
         fields = reader.fieldnames
 
         if not fields:
-            return JSONResponse({"success": False, "detail": "CSV has no header row"}, status_code=400)
+            return JSONResponse(
+                {"success": False, "detail": "CSV has no header row"}, status_code=400
+            )
 
         # Normalize header names (lowercase, strip whitespace)
         field_map = {f.strip().lower(): f for f in fields}
 
         # Map possible column names to our required fields
         column_mapping = {
-            "page_id": field_map.get("page_id") or field_map.get("id") or field_map.get("pageid") or field_map.get("page id"),
-            "name": field_map.get("name") or field_map.get("page_name") or field_map.get("pagename"),
-            "user": field_map.get("user") or field_map.get("username") or field_map.get("assigned_user"),
-            "tl": field_map.get("tl") or field_map.get("team_lead") or field_map.get("teamlead") or field_map.get("team lead"),
-            "account_name": field_map.get("account_name") or field_map.get("accountname") or field_map.get("account") or field_map.get("account name"),
+            "page_id": field_map.get("page_id")
+            or field_map.get("id")
+            or field_map.get("pageid")
+            or field_map.get("page id"),
+            "name": field_map.get("name")
+            or field_map.get("page_name")
+            or field_map.get("pagename"),
+            "user": field_map.get("user")
+            or field_map.get("username")
+            or field_map.get("assigned_user"),
+            "tl": field_map.get("tl")
+            or field_map.get("team_lead")
+            or field_map.get("teamlead")
+            or field_map.get("team lead"),
+            "account_name": field_map.get("account_name")
+            or field_map.get("accountname")
+            or field_map.get("account")
+            or field_map.get("account name"),
         }
 
         # Check required columns exist
         missing = [k for k, v in column_mapping.items() if v is None]
         if missing:
-            return JSONResponse({
-                "success": False,
-                "detail": f"Missing required columns: {', '.join(missing)}. Found columns: {', '.join(fields)}. "
-                          f"Expected: page_id (or id), name, user, tl, account_name"
-            }, status_code=400)
+            return JSONResponse(
+                {
+                    "success": False,
+                    "detail": f"Missing required columns: {', '.join(missing)}. Found columns: {', '.join(fields)}. "
+                    f"Expected: page_id (or id), name, user, tl, account_name",
+                },
+                status_code=400,
+            )
 
         imported = 0
         skipped = 0
@@ -606,27 +681,38 @@ async def upload_csv(request: Request, csv_file: UploadFile = File(...), db: Ses
                 errors.append(f"Row {row_num} ({page_id_val}): {str(e)}")
 
         db.commit()
-        logger.info(f"📤 CSV Upload by {current_user['username']}: {imported} imported, {skipped} skipped, {len(errors)} errors")
+        logger.info(
+            f"📤 CSV Upload by {current_user['username']}: {imported} imported, {skipped} skipped, {len(errors)} errors"
+        )
 
-        return JSONResponse({
-            "success": True,
-            "imported": imported,
-            "skipped": skipped,
-            "errors": errors[:20],  # limit error messages
-            "total_rows": row_num - 1,
-            "message": f"Imported {imported} pages, skipped {skipped} duplicates" + (f", {len(errors)} errors" if errors else ""),
-        })
+        return JSONResponse(
+            {
+                "success": True,
+                "imported": imported,
+                "skipped": skipped,
+                "errors": errors[:20],  # limit error messages
+                "total_rows": row_num - 1,
+                "message": f"Imported {imported} pages, skipped {skipped} duplicates"
+                + (f", {len(errors)} errors" if errors else ""),
+            }
+        )
 
     except csv.Error as e:
-        return JSONResponse({"success": False, "detail": f"CSV parsing error: {str(e)}"}, status_code=400)
+        return JSONResponse(
+            {"success": False, "detail": f"CSV parsing error: {str(e)}"},
+            status_code=400,
+        )
     except Exception as e:
         logger.error(f"CSV upload error: {str(e)}")
-        return JSONResponse({"success": False, "detail": f"Upload failed: {str(e)}"}, status_code=500)
+        return JSONResponse(
+            {"success": False, "detail": f"Upload failed: {str(e)}"}, status_code=500
+        )
 
 
 # ============================================
 # REST API ROUTES (for ManyChat automation)
 # ============================================
+
 
 @app.get("/api/page-ids", response_model=ManyChatPagesResponse, tags=["API"])
 async def api_get_all_page_ids(
@@ -641,7 +727,7 @@ async def api_get_all_page_ids(
     query = db.query(PageID)
     if active_only:
         query = query.filter(PageID.is_active == True)
-    
+
     pages = query.order_by(PageID.id.asc()).all()
 
     page_list = [
@@ -727,7 +813,9 @@ async def api_create_page_id(data: PageIDCreate, db: Session = Depends(get_db)):
     """CREATE a new page ID"""
     existing = db.query(PageID).filter(PageID.page_id == data.page_id).first()
     if existing:
-        raise HTTPException(status_code=409, detail=f"Page ID '{data.page_id}' already exists")
+        raise HTTPException(
+            status_code=409, detail=f"Page ID '{data.page_id}' already exists"
+        )
 
     new_page = PageID(
         page_id=data.page_id,
@@ -744,7 +832,9 @@ async def api_create_page_id(data: PageIDCreate, db: Session = Depends(get_db)):
 
 
 @app.put("/api/page-ids/{item_id}", response_model=PageIDResponse, tags=["API"])
-async def api_update_page_id(item_id: int, data: PageIDUpdate, db: Session = Depends(get_db)):
+async def api_update_page_id(
+    item_id: int, data: PageIDUpdate, db: Session = Depends(get_db)
+):
     """UPDATE a page ID"""
     page = db.query(PageID).filter(PageID.id == item_id).first()
     if not page:
@@ -752,9 +842,14 @@ async def api_update_page_id(item_id: int, data: PageIDUpdate, db: Session = Dep
 
     update_data = data.model_dump(exclude_unset=True)
     if "page_id" in update_data and update_data["page_id"] != page.page_id:
-        existing = db.query(PageID).filter(PageID.page_id == update_data["page_id"]).first()
+        existing = (
+            db.query(PageID).filter(PageID.page_id == update_data["page_id"]).first()
+        )
         if existing:
-            raise HTTPException(status_code=409, detail=f"Page ID '{update_data['page_id']}' already exists")
+            raise HTTPException(
+                status_code=409,
+                detail=f"Page ID '{update_data['page_id']}' already exists",
+            )
 
     for key, value in update_data.items():
         setattr(page, key, value)
@@ -834,6 +929,7 @@ async def health_check(db: Session = Depends(get_db)):
 # BULK OPERATIONS
 # ============================================
 
+
 @app.post("/api/page-ids/bulk-import", tags=["API"])
 async def api_bulk_import(
     request: Request,
@@ -845,7 +941,7 @@ async def api_bulk_import(
     """
     body = await request.json()
     pages = body.get("pages", [])
-    
+
     if not pages:
         raise HTTPException(status_code=400, detail="No pages provided")
 
@@ -893,6 +989,7 @@ async def api_bulk_import(
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "app:app",
         host=os.getenv("APP_HOST", "0.0.0.0"),
