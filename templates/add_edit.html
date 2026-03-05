@@ -125,27 +125,10 @@
         />
       </div>
 
+      {%- set is_checked = (mode == "add") or (page_item and page_item.is_active) %}
       <div class="form-group">
-        <label
-          style="display: flex; align-items: center; gap: 8px; cursor: pointer"
-        >
-          <input
-            type="checkbox"
-            name="is_active"
-            value="true"
-            {%
-            if
-            mode=""
-            ="add"
-            or
-            (page_item
-            and
-            page_item.is_active)
-            %}checked{%
-            endif
-            %}
-            style="width: auto; accent-color: #22c55e"
-          />
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer">
+          <input type="checkbox" name="is_active" value="true" {{ 'checked' if is_checked else '' }} style="width: auto; accent-color: #22c55e" />
           Active (included in ManyChat automation)
         </label>
       </div>
